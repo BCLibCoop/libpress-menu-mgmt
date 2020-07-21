@@ -12,7 +12,7 @@ Run command
 
 ``wp libpress-export-blogmenus --blogid=$BLOGID --url=$URL``
 
-Saves backup file to directory specified in ``MENU_MGMT_EXPORT_DIR``
+Saves backup file in WXR format to path specified in ``MENU_MGMT_EXPORT_DIR``, organized by Blog URL.
 
 ### Running network-wide (in cron)
 
