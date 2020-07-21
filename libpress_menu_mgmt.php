@@ -43,6 +43,10 @@ function libpress_menu_mgmt_remove_customizer_panel( $wp_customize ) {
 }
 add_action( 'customize_register', 'libpress_menu_mgmt_remove_customizer_panel' );
 
+
+//Define a constant
+defined( 'MENU_MGMT_EXPORT_DIR' ) or define( 'MENU_MGMT_EXPORT_DIR', '/home/siteuser/libpress_menu_backups/' );
+
 //Custom CLI commands
 if ( defined( 'WP_CLI' ) && WP_CLI ) {
         WP_CLI::add_command( 'libpress-export-blogmenus', 'libpress_menu_mgmt_export_blog_menu' );
@@ -98,7 +102,7 @@ function libpress_menu_mgmt_export_blog_menu( $args = array(), $assoc_args = arr
 
 function libpress_export_runner( $blog ){
         $command = 'export';
-        $dir = "/home/siteuser/libpress_menu_backups/{{ $blog->blogname }}/";
+        $dir = MENU_MGMT_EXPORT_DIR . "{{ $blog->blogname }}/";
 
         $options = array(
                 'dir' => $dir,
