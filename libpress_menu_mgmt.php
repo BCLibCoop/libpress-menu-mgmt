@@ -24,16 +24,14 @@ function libpress_menu_mgmt_add_role() {
 }
 add_action( 'libpress_menu_mgmt_activation', 'libpress_menu_mgmt_add_role');
 
-//Remove Widget access from the Admin toolbar, Customizer
-//@todo Move these to the hook utlity?
-function libpress_menu_mgmt_remove_toolbar_node($wp_admin_bar) {
-        $user = wp_get_current_user();
-        if ( in_array('site_manager_plus', $user->roles) ) {
-                $wp_admin_bar->remove_node('widgets');
-        }
-
+function libpress_menu_mgmt_remove_admin_submenus(){
+	$user = wp_get_current_user();
+	if ( in_array('site_manager_plus', $user->roles) ) {
+		 remove_submenu_page( 'themes.php', 'theme-editor.php' );
+	 	 remove_submenu_page( 'themes.php', 'themes.php' );
+		 remove_submenu_page( 'themes.php', 'widgets.php' );
+	}
 }
-add_action('admin_bar_menu', 'libpress_menu_mgmt_remove_toolbar_node', 500);
 
 function libpress_menu_mgmt_remove_customizer_panel( $wp_customize ) {
         $user = wp_get_current_user();
@@ -41,8 +39,19 @@ function libpress_menu_mgmt_remove_customizer_panel( $wp_customize ) {
                 $wp_customize->remove_panel('widgets');
         }
 }
-add_action( 'customize_register', 'libpress_menu_mgmt_remove_customizer_panel' );
 
+function libpress_menu_mgmt_remove_toolbar_node($wp_admin_bar) {
+        $user = wp_get_current_user();
+        if ( in_array('site_manager_plus', $user->roles) ) {
+                $wp_admin_bar->remove_node('widgets');
+        }
+
+}
+
+//Remove Widget & Theme links from the Admin sidebar, ADmin toolbar, Customizer
+add_action( 'admin_menu', 'libpress_menu_mgmt_remove_admin_submenus');
+add_action( 'customize_register', 'libpress_menu_mgmt_remove_customizer_panel' );
+add_action( 'admin_bar_menu', 'libpress_menu_mgmt_remove_toolbar_node', 500);
 
 //Define export directory constant
 defined( 'MENU_MGMT_EXPORT_DIR' ) or define( 'MENU_MGMT_EXPORT_DIR', '/home/siteuser/libpress_menu_backups/' );
