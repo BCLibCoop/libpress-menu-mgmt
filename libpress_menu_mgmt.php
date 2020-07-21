@@ -44,7 +44,7 @@ function libpress_menu_mgmt_remove_customizer_panel( $wp_customize ) {
 add_action( 'customize_register', 'libpress_menu_mgmt_remove_customizer_panel' );
 
 
-//Define a constant
+//Define export directory constant
 defined( 'MENU_MGMT_EXPORT_DIR' ) or define( 'MENU_MGMT_EXPORT_DIR', '/home/siteuser/libpress_menu_backups/' );
 
 //Custom CLI commands
@@ -81,7 +81,7 @@ function libpress_menu_mgmt_export_blog_menu( $args = array(), $assoc_args = arr
                 }
         } else {
                 $blog_id = (int) $arguments['blogid'];
-                WP_CLI::line( "Using arg : {$blog_id}" );
+                WP_CLI::debug( "Using blogid: {$blog_id}" );
 
                 //blogid defaults to 1 but could be set to non-numeric or null
                 if ( is_int($blog_id) && $arguments['network'] == false) {
@@ -100,28 +100,26 @@ function libpress_menu_mgmt_export_blog_menu( $args = array(), $assoc_args = arr
  * @param \WP_Site $blog
  */
 
-function libpress_export_runner( $blog ){
-        $command = 'export';
-        $dir = MENU_MGMT_EXPORT_DIR . "{{ $blog->blogname }}/";
+function libpress_export_runner( $blog ) {
+        $timestamp = date("Ymd_His");
+        $dir = MENU_MGMT_EXPORT_DIR . $blog->domain . '/';
+        $command = "export --url=$blog->siteurl --dir=$dir --post_type=nav_menu_item --skip_comments=TRUE --filename_format='menu_backup.$timestamp.xml'";
 
-        $options = array(
-                'dir' => $dir,
-                'post_type' => 'nav_menu_item',
-                'url' => $blog->siteurl,
-        );
+        $options = array();
 
         //@todo add shell script to ensure only last 3 exist in each dir
+        if (! is_dir($dir) ) mkdir($dir, 0774, TRUE);
 
-        //Run composed export command like so
-        // wp export --dir=~/menus/$ID --post_type=nav_menu_item --url=$URL
+        //Run composed export command
         try {
+                WP_CLI::debug( "Ran command" . $command);
                 WP_CLI::runcommand( $command, $options );
 
                 // Show success message.
-                WP_CLI::success( "Menus for blog ID: $blog->blogname ($blog->blog_id) successfully." );
+                WP_CLI::success( "Menus for blogID: $blog->blogname ($blog->blog_id) successfully." );
                 return TRUE;
         } catch (Exception $e) {
-        // Arguments not okay, show an error.
-        WP_CLI::error( 'Likely invalid argument for blogid.' );
+                // Arguments not okay, show an error.
+                WP_CLI::error( "Failed. Check the value given for blogID ($blog->blog_id)." );
         }
 }
