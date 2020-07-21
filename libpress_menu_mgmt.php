@@ -13,18 +13,18 @@ Text Domain: libpress_menu_management
 
 /** Action hook setup section **/
 
-//Custom hook
 function libpress_menu_mgmt_activate() {
         do_action( 'libpress_menu_mgmt_activation' );
 }
+//Register custom hook
 register_activation_hook( __FILE__, 'libpress_menu_mgmt_activate');
 
-//Add the Site Manager Plus role via custom hook
 function libpress_menu_mgmt_add_role() {
         $siteManagerCaps = get_role( 'site_manager' )->capabilities;
         $siteManagerPlusCaps = array_merge($siteManagerCaps, array('edit_theme_options' => true, 'customize' => true));
         add_role( 'site_manager_plus', 'Site & Menu Manager', $siteManagerPlusCaps  );
 }
+//Add the Site Manager Plus role via custom hook
 add_action( 'libpress_menu_mgmt_activation', 'libpress_menu_mgmt_add_role');
 
 function libpress_menu_mgmt_remove_admin_submenus(){
@@ -43,6 +43,7 @@ function libpress_menu_mgmt_remove_customizer_panel( $wp_customize ) {
         }
 }
 
+
 function libpress_menu_mgmt_remove_toolbar_node($wp_admin_bar) {
         $user = wp_get_current_user();
         if ( in_array('site_manager_plus', $user->roles) ) {
@@ -51,10 +52,11 @@ function libpress_menu_mgmt_remove_toolbar_node($wp_admin_bar) {
 
 }
 
-//Remove Widget & Theme links from the Admin sidebar, ADmin toolbar, Customizer
+//Remove Widget & Theme links from the Admin sidebar, Admin toolbar, Customizer
 add_action( 'admin_menu', 'libpress_menu_mgmt_remove_admin_submenus');
 add_action( 'customize_register', 'libpress_menu_mgmt_remove_customizer_panel' );
 add_action( 'admin_bar_menu', 'libpress_menu_mgmt_remove_toolbar_node', 500);
+
 
 /** CLI Command section **/
 
