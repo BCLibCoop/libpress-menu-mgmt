@@ -89,12 +89,11 @@ function libpress_menu_mgmt_export_blog_menu( $args = array(), $assoc_args = arr
         );
 
         if ($arguments['network'] == true) {
-                //ignore blogid, loop through all blogs
-                $blogs = get_sites( array( 'public' => 1 ) );
+                //ignore blogid, loop through all blog sites
+                $sites = get_sites( array( 'public' => 1 ) );
 
                 foreach ($sites as $site) {
-                        if ($blog = get_blog_details($site->blog_id))
-                                libpress_export_runner($blog);
+                        if ($blog = get_blog_details($site->blog_id))libpress_export_runner($blog);
                 }
         } else {
                 $blog_id = (int) $arguments['blogid'];
@@ -107,7 +106,7 @@ function libpress_menu_mgmt_export_blog_menu( $args = array(), $assoc_args = arr
                         $blog = get_blog_details( $blog_id );
                         libpress_export_runner($blog);
                 } else {
-                        WP_CLI::warning( 'Could not complete run due to bad arguments.');
+                        WP_CLI::warning( 'Could not complete network run due to bad arguments.');
                 }
         }
 }
@@ -148,10 +147,10 @@ function libpress_menu_mgmt_import_blog_menu( $filepath ) {
         //get blog from $filepath
         if (!isset($filepath[0])) return FALSE;
 
-	$xml = simplexml_load_file($filepath[0]);
+        $xml = simplexml_load_file($filepath[0]);
         $base_blog_url = reset($xml->channel->link) ?: 'maple.bc.libraries.coop';
         $blog_url = str_replace(array("http://", "https://"), "", $base_blog_url);
-	$menu_locations = array('main-menu' => 'primary', 'footer-menu' => 'secondary');
+        $menu_locations = array('main-menu' => 'primary', 'footer-menu' => 'secondary');
 
         //Ask
         WP_CLI::confirm( $message = WP_CLI::colorize("%mMain, footer menus for $blog_url will be deleted.%n Proceed?"));
