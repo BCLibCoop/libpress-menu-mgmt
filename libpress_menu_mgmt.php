@@ -146,20 +146,22 @@ function libpress_export_runner( $blog ) {
 function libpress_menu_mgmt_import_blog_menu( $filepath ) {
 
         //get blog from $filepath
-        $xml = simplexml_load_file($filepath);
+        if (!isset($filepath[0])) return FALSE;
+
+	$xml = simplexml_load_file($filepath[0]);
         $base_blog_url = reset($xml->channel->link) ?: 'maple.bc.libraries.coop';
         $blog_url = str_replace(array("http://", "https://"), "", $base_blog_url);
+	$menu_locations = array('main-menu' => 'primary', 'footer-menu' => 'secondary');
 
         //Ask
-        WP_CLI::confirm( "Main, footer menus for $blog_url will be deleted. Proceed?", $assoc_args );
+        WP_CLI::confirm( $message = WP_CLI::colorize("%mMain, footer menus for $blog_url will be deleted.%n Proceed?"));
         try {
-                foreach (array('main-menu' => 'primary', 'footer-menu' => 'secondary') as $menu => $location) {
+                foreach ( $menu_locations as $menu => $location) {
                         WP_CLI::runcommand("menu delete $menu --url=$blog_url");
                         WP_CLI::line("Deleted existing menus.");
                 }
-                WP_CLI::runcommand("import $file --authors=skip");
-                WP_CLI::success("Finished import of menu backup.");
-                foreach (array('main-menu', 'footer-menu') as $menu => $location) {
+                WP_CLI::runcommand("import $filepath[0] --authors=skip"); # No success call needed, has it's own.
+                foreach ( $menu_locations as $menu => $location) {
                         WP_CLI::runcommand("menu location assign $menu $location --url=$blog_url");
                         WP_CLI::line("Assigned imported menus to their respective locations.");
                 }
