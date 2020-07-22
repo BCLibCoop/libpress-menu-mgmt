@@ -158,12 +158,12 @@ function libpress_menu_mgmt_import_blog_menu( $filepath ) {
                         WP_CLI::line("Deleted existing menus.");
                 }
                 WP_CLI::runcommand("import $file --authors=skip");
-                WP_CLI::success("Finished import of menu backup.")
-                foreach (array('main-menu', 'footer-menu') as $menu) {
+                WP_CLI::success("Finished import of menu backup.");
+                foreach (array('main-menu', 'footer-menu') as $menu => $location) {
                         WP_CLI::runcommand("menu location assign $menu $location --url=$blog_url");
-                        WP_CLI::line("Assigned imported menus to their respective locations.")
+                        WP_CLI::line("Assigned imported menus to their respective locations.");
                 }
         } catch (Exception $e) {
-                WP_CLI::error ("Failed to import with $e->getMessage().")
+                WP_CLI::error ("Failed to import with $e->getMessage().");
         }
 }
