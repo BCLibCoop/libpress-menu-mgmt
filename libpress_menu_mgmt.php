@@ -66,6 +66,7 @@ defined( 'MENU_MGMT_EXPORT_DIR' ) or define( 'MENU_MGMT_EXPORT_DIR', '/home/site
 //Custom CLI commands
 if ( defined( 'WP_CLI' ) && WP_CLI ) {
         WP_CLI::add_command( 'libpress-export-blogmenus', 'libpress_menu_mgmt_export_blog_menu' );
+        WP_CLI::add_command( 'libpress-import-blogmenu', 'libpress_menu_mgmt_import_blog_menu');
 }
 
 /**
@@ -117,13 +118,15 @@ function libpress_menu_mgmt_export_blog_menu( $args = array(), $assoc_args = arr
  */
 
 function libpress_export_runner( $blog ) {
+
+        //Setup
         $timestamp = date("Ymd_His");
         $dir = MENU_MGMT_EXPORT_DIR . $blog->domain . '/';
         $command = "export --url=$blog->siteurl --dir=$dir --post_type=nav_menu_item --skip_comments=TRUE --filename_format='menu_backup.$timestamp.xml'";
 
         $options = array();
 
-        //@todo add shell script to ensure only last 3 exist in each dir
+        //@todo add cronjob to ensure only last 3 exist in each dir
         if (! is_dir($dir) ) mkdir($dir, 0774, TRUE);
 
         //Run composed export command
@@ -136,6 +139,31 @@ function libpress_export_runner( $blog ) {
                 return TRUE;
         } catch (Exception $e) {
                 // Arguments not okay, show an error.
-                WP_CLI::error( "Failed. Check the value given for blogID ($blog->blog_id)." );
+                WP_CLI::error( "Failed with $e->getMessage(). Check the value given for blogID ($blog->blog_id)." );
+        }
+}
+
+function libpress_menu_mgmt_import_blog_menu( $filepath ) {
+
+        //get blog from $filepath
+        $xml = simplexml_load_file($filepath);
+        $base_blog_url = reset($xml->channel->link) ?: 'maple.bc.libraries.coop';
+        $blog_url = str_replace(array("http://", "https://"), "", $base_blog_url);
+
+        //Ask
+        WP_CLI::confirm( "Main, footer menus for $blog_url will be deleted. Proceed?", $assoc_args );
+        try {
+                foreach (array('main-menu' => 'primary', 'footer-menu' => 'secondary') as $menu => $location) {
+                        WP_CLI::runcommand("menu delete $menu --url=$blog_url");
+                        WP_CLI::line("Deleted existing menus.");
+                }
+                WP_CLI::runcommand("import $file --authors=skip");
+                WP_CLI::success("Finished import of menu backup.")
+                foreach (array('main-menu', 'footer-menu') as $menu) {
+                        WP_CLI::runcommand("menu location assign $menu $location --url=$blog_url");
+                        WP_CLI::line("Assigned imported menus to their respective locations.")
+                }
+        } catch (Exception $e) {
+                WP_CLI::error ("Failed to import with $e->getMessage().")
         }
 }
