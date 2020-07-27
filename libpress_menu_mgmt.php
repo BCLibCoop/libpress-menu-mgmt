@@ -13,19 +13,36 @@ Text Domain: libpress_menu_management
 
 /** Action hook setup section **/
 
-function libpress_menu_mgmt_activate() {
-        do_action( 'libpress_menu_mgmt_activation' );
+function libpress_menu_mgmt_activate($network_wide) {
+        if ( is_multisite() && $network_wide ) {
+            foreach (get_sites() as $site) {
+                switch_to_blog($site->blog_id);
+                do_action( 'libpress_menu_mgmt_activation' );
+                restore_current_blog();
+            }
+        } else {
+            do_action( 'libpress_menu_mgmt_activation' );
+        }
 }
+
+function libpress_menu_mgmt_new_blog($blog_id) {
+     if ( is_plugin_active_for_network( 'libpress-menu-mgmt/libpress_menu_mgmt.php' ) ) {
+         do_action( 'libpress_menu_mgmt_activation' );
+     }
+}
+
 //Register custom hook
 register_activation_hook( __FILE__, 'libpress_menu_mgmt_activate');
+//Add the Site Manager Plus role via custom hook
+add_action( 'libpress_menu_mgmt_activation', 'libpress_menu_mgmt_add_role');
+//Add action for new blog created
+add_action( 'wpmu_new_blog', 'libpress_menu_mgmt_new_blog');
 
 function libpress_menu_mgmt_add_role() {
         $siteManagerCaps = get_role( 'site_manager' )->capabilities;
         $siteManagerPlusCaps = array_merge($siteManagerCaps, array('edit_theme_options' => true, 'customize' => true));
         add_role( 'site_manager_plus', 'Site & Menu Manager', $siteManagerPlusCaps  );
 }
-//Add the Site Manager Plus role via custom hook
-add_action( 'libpress_menu_mgmt_activation', 'libpress_menu_mgmt_add_role');
 
 function libpress_menu_mgmt_remove_admin_submenus(){
         $user = wp_get_current_user();
@@ -42,7 +59,6 @@ function libpress_menu_mgmt_remove_customizer_panel( $wp_customize ) {
                 $wp_customize->remove_panel('widgets');
         }
 }
-
 
 function libpress_menu_mgmt_remove_toolbar_node($wp_admin_bar) {
         $user = wp_get_current_user();
@@ -155,12 +171,12 @@ function libpress_menu_mgmt_import_blog_menu( $filepath ) {
         //Ask
         WP_CLI::confirm( $message = WP_CLI::colorize("%mMain, footer menus for $blog_url will be deleted.%n Proceed?"));
         try {
-                foreach ( $menu_locations as $menu => $location) {
+                foreach ( $menu_locations as $menu => $location ) {
                         WP_CLI::runcommand("menu delete $menu --url=$blog_url");
                         WP_CLI::line("Deleted existing menus.");
                 }
                 WP_CLI::runcommand("import $filepath[0] --authors=skip"); # No success call needed, has it's own.
-                foreach ( $menu_locations as $menu => $location) {
+                foreach ( $menu_locations as $menu => $location ) {
                         WP_CLI::runcommand("menu location assign $menu $location --url=$blog_url");
                         WP_CLI::line("Assigned imported menus to their respective locations.");
                 }
