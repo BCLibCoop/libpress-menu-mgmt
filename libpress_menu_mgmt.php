@@ -16,7 +16,7 @@
  * @wordpress-plugin
  * Plugin Name:       LibPress Menu Management
  * Description:       Adds functionality for self-management of menus, network-wide exporting for backup
- * Version:           1.0.0
+ * Version:           1.1.0
  * Network:           true
  * Requires at least: 5.2
  * Requires PHP:      7.0
@@ -64,37 +64,44 @@ function libpress_menu_mgmt_add_role()
 }
 add_action('libpress_menu_mgmt_activation', 'libpress_menu_mgmt_add_role');
 
-function libpress_menu_mgmt_remove_admin_submenus()
+function libpress_menu_mgmt_remove_customizer_panel($components)
 {
     $user = wp_get_current_user();
-    if (in_array('site_manager_plus', $user->roles)) {
-        remove_submenu_page('themes.php', 'theme-editor.php');
-        remove_submenu_page('themes.php', 'themes.php');
-        remove_submenu_page('themes.php', 'widgets.php');
-    }
-}
 
-function libpress_menu_mgmt_remove_customizer_panel($wp_customize)
-{
-    $user = wp_get_current_user();
     if (in_array('site_manager_plus', $user->roles)) {
-        $wp_customize->remove_panel('widgets');
+        $i = array_search('widgets', $components);
+
+        if (false !== $i) {
+            unset($components[$i]);
+        }
     }
+
+    return $components;
 }
 
 function libpress_menu_mgmt_remove_toolbar_node($wp_admin_bar)
 {
     $user = wp_get_current_user();
+
     if (in_array('site_manager_plus', $user->roles)) {
         $wp_admin_bar->remove_node('widgets');
     }
 }
 
-//Remove Widget & Theme links from the Admin sidebar, Admin toolbar, Customizer
-add_action('admin_menu', 'libpress_menu_mgmt_remove_admin_submenus');
-add_action('customize_register', 'libpress_menu_mgmt_remove_customizer_panel');
+// Remove Widget & Theme links from the Admin sidebar, Admin toolbar, Customizer
+add_filter('customize_loaded_components', 'libpress_menu_mgmt_remove_customizer_panel');
 add_action('admin_bar_menu', 'libpress_menu_mgmt_remove_toolbar_node', 500);
 
+// Remove theme support to disable more widget things on the backend
+add_action('init', function () {
+    if (!wp_doing_ajax() && is_admin()) {
+        $user = wp_get_current_user();
+
+        if (in_array('site_manager_plus', $user->roles)) {
+            _remove_theme_support('widgets');
+        }
+    }
+}, 100);
 
 /**
  * CLI Command section
