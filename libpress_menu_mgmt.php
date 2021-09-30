@@ -16,7 +16,7 @@
  * @wordpress-plugin
  * Plugin Name:       LibPress Menu Management
  * Description:       Adds functionality for self-management of menus, network-wide exporting for backup
- * Version:           1.1.0
+ * Version:           1.2.0
  * Network:           true
  * Requires at least: 5.2
  * Requires PHP:      7.0
@@ -59,11 +59,17 @@ add_action('wpmu_new_blog', 'libpress_menu_mgmt_new_blog');
 function libpress_menu_mgmt_add_role()
 {
     $siteManagerCaps = get_role('site_manager')->capabilities;
-    $siteManagerPlusCaps = array_merge($siteManagerCaps, array('edit_theme_options' => true, 'customize' => true));
+
+    // Add edit_theme_options to the caps that site_manager already has
+    $siteManagerPlusCaps = array_merge($siteManagerCaps, ['edit_theme_options' => true]);
+
     add_role('site_manager_plus', 'Site & Menu Manager', $siteManagerPlusCaps);
 }
 add_action('libpress_menu_mgmt_activation', 'libpress_menu_mgmt_add_role');
 
+/**
+ * Don't load Widgets customizer panel
+ */
 function libpress_menu_mgmt_remove_customizer_panel($components)
 {
     $user = wp_get_current_user();
@@ -78,7 +84,11 @@ function libpress_menu_mgmt_remove_customizer_panel($components)
 
     return $components;
 }
+add_filter('customize_loaded_components', 'libpress_menu_mgmt_remove_customizer_panel');
 
+/**
+ * Remove Widgets from the admin bar
+ */
 function libpress_menu_mgmt_remove_toolbar_node($wp_admin_bar)
 {
     $user = wp_get_current_user();
@@ -87,9 +97,6 @@ function libpress_menu_mgmt_remove_toolbar_node($wp_admin_bar)
         $wp_admin_bar->remove_node('widgets');
     }
 }
-
-// Remove Widget & Theme links from the Admin sidebar, Admin toolbar, Customizer
-add_filter('customize_loaded_components', 'libpress_menu_mgmt_remove_customizer_panel');
 add_action('admin_bar_menu', 'libpress_menu_mgmt_remove_toolbar_node', 500);
 
 // Remove theme support to disable more widget things on the backend
@@ -124,35 +131,40 @@ if (defined('WP_CLI') && WP_CLI) {
  *
  * Usage: `wp libpress-export-blog-menus --id=123`
  */
-function libpress_menu_mgmt_export_blog_menu($args = array(), $assoc_args = array())
+function libpress_menu_mgmt_export_blog_menu($args = [], $assoc_args = [])
 {
     // Get arguments.
     $arguments = wp_parse_args(
         $assoc_args,
-        array( //defaults
+        [
             'blogid'    => 1,
-            'network' => false
-        )
+            'network'   => false
+        ]
     );
 
     if ($arguments['network'] == true) {
-        //ignore blogid, loop through all blog sites
-        $sites = get_sites(array('public' => 1));
+        // ignore blogid, loop through all blog sites
+        $sites = get_sites([
+            'public' => 1,
+            'archived' => 0,
+            'deleted' => 0,
+        ]);
 
         foreach ($sites as $site) {
-            if ($blog = get_blog_details($site->blog_id)) {
-                libpress_export_runner($blog);
-            }
+            libpress_export_runner($site);
         }
     } else {
         $blog_id = (int) $arguments['blogid'];
         WP_CLI::debug("Using blogid: {$blog_id}");
 
-        //blogid defaults to 1 but could be set to non-numeric or null
-        if (is_int($blog_id) && $arguments['network'] == false) {
-            //Load the $blog object from blogid
-            $blog = get_blog_details($blog_id);
-            libpress_export_runner($blog);
+        // blogid defaults to 1 but could be set to non-numeric or null
+        if ($blog_id > 0 && $arguments['network'] == false) {
+            // Load the $blog object from blogid
+            if ($blog = get_blog_details($blog_id)) {
+                libpress_export_runner($blog);
+            } else {
+                WP_CLI::warning('Invalid blog id.');
+            }
         } else {
             WP_CLI::warning('Could not complete network run due to bad arguments.');
         }
@@ -195,17 +207,27 @@ function libpress_export_runner($blog)
 
 function libpress_menu_mgmt_import_blog_menu($filepath)
 {
-    //get blog from $filepath
-    if (!isset($filepath[0])) {
-        return false;
+    if (empty($filepath)) {
+        WP_CLI::error("Please specify a file to import");
+    }
+
+    if (!is_readable($filepath[0])) {
+        WP_CLI::error("Cannot read file for import: " . $filepath[0]);
     }
 
     $xml = simplexml_load_file($filepath[0]);
-    $base_blog_url = reset($xml->channel->link) ?: 'maple.bc.libraries.coop';
-    $blog_url = str_replace(array("http://", "https://"), "", $base_blog_url);
-    $menu_locations = array('main-menu' => 'primary', 'footer-menu' => 'secondary');
 
-    //Ask
+    if ($xml === false) {
+        WP_CLI::error("Could not parse export file");
+    }
+
+    $blog_url = reset($xml->channel->link) ?: 'maple.bc.libraries.coop';
+    $menu_locations = [
+        'main-menu' => 'primary',
+        'footer-menu' => 'secondary'
+    ];
+
+    // Ask
     WP_CLI::confirm(WP_CLI::colorize("%mMain, footer menus for $blog_url will be deleted.%n Proceed?"));
     try {
         foreach ($menu_locations as $menu => $location) {
