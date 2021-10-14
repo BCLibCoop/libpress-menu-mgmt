@@ -16,7 +16,7 @@
  * @wordpress-plugin
  * Plugin Name:       LibPress Menu Management
  * Description:       Adds functionality for self-management of menus, network-wide exporting for backup
- * Version:           1.2.0
+ * Version:           1.3.0
  * Network:           true
  * Requires at least: 5.2
  * Requires PHP:      7.0
@@ -93,7 +93,7 @@ function libpress_menu_mgmt_remove_toolbar_node($wp_admin_bar)
 {
     $user = wp_get_current_user();
 
-    if (in_array('site_manager_plus', $user->roles)) {
+    if (in_array('site_manager_plus', $user->roles) && !user_can($user, 'libpress_appearance')) {
         $wp_admin_bar->remove_node('widgets');
     }
 }
@@ -104,7 +104,7 @@ add_action('init', function () {
     if (!wp_doing_ajax() && is_admin()) {
         $user = wp_get_current_user();
 
-        if (in_array('site_manager_plus', $user->roles)) {
+        if (in_array('site_manager_plus', $user->roles) && !user_can($user, 'libpress_appearance')) {
             _remove_theme_support('widgets');
         }
     }
