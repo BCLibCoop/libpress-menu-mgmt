@@ -16,7 +16,7 @@
  * @wordpress-plugin
  * Plugin Name:       LibPress Menu Management
  * Description:       Adds functionality for self-management of menus, network-wide exporting for backup
- * Version:           1.3.0
+ * Version:           1.3.1
  * Network:           true
  * Requires at least: 5.2
  * Requires PHP:      7.0
@@ -58,12 +58,16 @@ add_action('wpmu_new_blog', 'libpress_menu_mgmt_new_blog');
 // Add the Site Manager Plus role via custom hook
 function libpress_menu_mgmt_add_role()
 {
-    $siteManagerCaps = get_role('site_manager')->capabilities;
+    $siteManager = get_role('site_manager');
 
-    // Add edit_theme_options to the caps that site_manager already has
-    $siteManagerPlusCaps = array_merge($siteManagerCaps, ['edit_theme_options' => true]);
+    if ($siteManager && !is_wp_error($siteManager)) {
+        $siteManagerCaps = $siteManager->capabilities;
 
-    add_role('site_manager_plus', 'Site & Menu Manager', $siteManagerPlusCaps);
+        // Add edit_theme_options to the caps that site_manager already has
+        $siteManagerPlusCaps = array_merge($siteManagerCaps, ['edit_theme_options' => true]);
+
+        add_role('site_manager_plus', 'Site & Menu Manager', $siteManagerPlusCaps);
+    }
 }
 add_action('libpress_menu_mgmt_activation', 'libpress_menu_mgmt_add_role');
 
