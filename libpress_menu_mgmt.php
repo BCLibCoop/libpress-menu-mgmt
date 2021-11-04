@@ -16,7 +16,7 @@
  * @wordpress-plugin
  * Plugin Name:       LibPress Menu Management
  * Description:       Adds functionality for self-management of menus, network-wide exporting for backup
- * Version:           1.3.1
+ * Version:           2.0.0
  * Network:           true
  * Requires at least: 5.2
  * Requires PHP:      7.0
@@ -219,33 +219,166 @@ function libpress_menu_mgmt_import_blog_menu($filepath)
         WP_CLI::error("Cannot read file for import: " . $filepath[0]);
     }
 
+    $menu_locations = [
+        'main-menu' => 'primary',
+        'footer-menu' => 'secondary'
+    ];
+
     $xml = simplexml_load_file($filepath[0]);
 
     if ($xml === false) {
         WP_CLI::error("Could not parse export file");
     }
 
-    $blog_url = reset($xml->channel->link) ?: 'maple.bc.libraries.coop';
-    $menu_locations = [
-        'main-menu' => 'primary',
-        'footer-menu' => 'secondary'
-    ];
+    $blog_url = reset($xml->channel->link);
 
-    // Ask
-    WP_CLI::confirm(WP_CLI::colorize("%mMain, footer menus for $blog_url will be deleted.%n Proceed?"));
-    try {
-        foreach ($menu_locations as $menu => $location) {
-            WP_CLI::runcommand("menu delete $menu --url=$blog_url");
-            WP_CLI::line("Deleted existing menus.");
+    if (!empty($blog_url)) {
+        // Ask
+        WP_CLI::confirm(WP_CLI::colorize("%mMain, footer menus for $blog_url will be deleted.%n Proceed?"));
+        try {
+            // Delete the existing menus first so we get a clean import.
+            // TODO: Rename and remove from location rather than delete?
+            foreach ($menu_locations as $menu => $location) {
+                WP_CLI::runcommand("menu delete $menu --url=$blog_url");
+                WP_CLI::line("Deleted existing menus.");
+            }
+
+            WP_CLI::runcommand("import $filepath[0] --authors=skip --url=$blog_url"); # No success call needed, has it's own.
+
+            foreach ($menu_locations as $menu => $location) {
+                WP_CLI::runcommand("menu location assign $menu $location --url=$blog_url");
+                WP_CLI::line("Assigned imported menus to their respective locations.");
+            }
+        } catch (Exception $e) {
+            WP_CLI::error("Failed to import with $e->getMessage().");
         }
-
-        WP_CLI::runcommand("import $filepath[0] --authors=skip"); # No success call needed, has it's own.
-
-        foreach ($menu_locations as $menu => $location) {
-            WP_CLI::runcommand("menu location assign $menu $location --url=$blog_url");
-            WP_CLI::line("Assigned imported menus to their respective locations.");
-        }
-    } catch (Exception $e) {
-        WP_CLI::error("Failed to import with $e->getMessage().");
+    } else {
+        WP_CLI::error("Could not determine blog URL from file");
     }
 }
+
+// TODO: Maybe schedule an export on a cron job when changes are made?
+// But that would mean we're backing up the changes, not the pre-changes...
+// add_action('wp_update_nav_menu', function ($menu_id) {
+//     error_log(var_export($menu_id, true));
+// });
+
+add_filter('wp_import_terms', function ($terms) {
+    $all_nav_menu = true;
+    $fake_processed_terms = [];
+
+    foreach ($terms as $term) {
+        if ($term['term_taxonomy'] !== 'nav_menu') {
+            $all_nav_menu = false;
+            break;
+        }
+    }
+
+    if ($all_nav_menu) {
+        // We have no way to determine what terms/taxonomies might be in use
+        // by the menu. The only solution I can think of is to include all of them.
+
+        $all_terms = get_terms([
+            'get' => 'all',
+        ]);
+
+        foreach ($all_terms as $all_term) {
+            // Only what's required for the importer mapping
+            $fake_processed_terms[] = [
+                'term_id' => $all_term->term_id,
+                'slug' => $all_term->slug,
+                'term_taxonomy' => $all_term->taxonomy,
+            ];
+        }
+
+        $terms = array_merge($terms, $fake_processed_terms);
+    }
+
+    return $terms;
+});
+
+add_filter('wp_import_posts', function ($posts) {
+    $all_nav_menu = true;
+    $fake_processed_posts = [];
+
+    foreach ($posts as $post) {
+        if ($post['post_type'] !== 'nav_menu_item') {
+            $all_nav_menu = false;
+            break;
+        }
+    }
+
+    if ($all_nav_menu) {
+        foreach ($posts as $item) {
+            // Set up postmeta as variables
+            foreach ($item['postmeta'] as $meta) {
+                ${$meta['key']} = $meta['value'];
+            }
+
+            if ($_menu_item_type === 'post_type') {
+                $post_id = intval($_menu_item_object_id);
+
+                // Check if we've already inserted this post into the array
+                if (array_search($post_id, array_column($fake_processed_posts, 'post_id')) === false) {
+                    // To make a long story short, if the post doesn't actually exist, then it's going
+                    // to be a problem down the road, so only actually insert fake entries for posts
+                    // that are still around.
+                    if (get_post($post_id)) {
+                        // If not, create the minimum post-like array needed to do what we need
+                        $fake_processed_posts[] = [
+                            // We'll check for this later
+                            'menu_import_post' => true,
+                            'status' => 'publish',
+                            'post_id' => $post_id,
+                            'post_type' => $_menu_item_object,
+                            // By passing through no title or date, we can totally skip
+                            // the DB check, saving some time
+                            'post_title' => '',
+                            'post_date' => '',
+                            // Just set these as empty arrays to be safe
+                            'terms' => [],
+                            'comments' => [],
+                            'postmeta' => [],
+                        ];
+                    } else {
+                        printf(
+                            'Menu Item &#8220;%s&#8221; skipped due to nonexistent post ID %s',
+                            esc_html($item['post_title']),
+                            $post_id
+                        );
+                        echo '<br />';
+                    }
+                }
+            } elseif ($_menu_item_type === 'taxonomy') {
+                $check_term = get_term($_menu_item_object_id, $_menu_item_object);
+
+                if (!$check_term || is_wp_error($check_term)) {
+                    printf(
+                        'Menu Item &#8220;%s&#8221; skipped due to nonexistent term ID %s in taxonomy %s',
+                        esc_html($item['post_title']),
+                        $_menu_item_object_id,
+                        $_menu_item_object
+                    );
+                    echo '<br />';
+                }
+            }
+        }
+
+        $posts = array_merge($posts, $fake_processed_posts);
+    }
+
+    return $posts;
+});
+
+/**
+ * When we detect a post that we manually inserted into the import array,
+ * simply return the ID that we set. We've already checked that the post exists
+ * in the DB, so this should be safe to do.
+ */
+add_filter('wp_import_existing_post', function ($post_exists, $post) {
+    if ($post_exists === 0 && isset($post['menu_import_post']) && $post['menu_import_post']) {
+        $post_exists = $post['post_id'];
+    }
+
+    return $post_exists;
+}, 10, 2);
