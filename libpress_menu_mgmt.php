@@ -28,10 +28,14 @@
  */
 
 /**
+ * -------------------------
  * Action hook setup section
- **/
+ * -------------------------
+ */
 
-// Register custom hook
+/**
+ * Register custom hook
+ */
 function libpress_menu_mgmt_activate($network_wide)
 {
     if (is_multisite() && $network_wide) {
@@ -46,8 +50,10 @@ function libpress_menu_mgmt_activate($network_wide)
 }
 register_activation_hook(__FILE__, 'libpress_menu_mgmt_activate');
 
-// Add action for new blog created
-function libpress_menu_mgmt_new_blog($blog_id)
+/**
+ * Add action for new blog created
+ */
+function libpress_menu_mgmt_new_blog()
 {
     if (is_plugin_active_for_network('libpress-menu-mgmt/libpress_menu_mgmt.php')) {
         do_action('libpress_menu_mgmt_activation');
@@ -55,7 +61,9 @@ function libpress_menu_mgmt_new_blog($blog_id)
 }
 add_action('wpmu_new_blog', 'libpress_menu_mgmt_new_blog');
 
-// Add the Site Manager Plus role via custom hook
+/**
+ * Add the Site Manager Plus role via custom hook
+ */
 function libpress_menu_mgmt_add_role()
 {
     $siteManager = get_role('site_manager');
@@ -103,7 +111,9 @@ function libpress_menu_mgmt_remove_toolbar_node($wp_admin_bar)
 }
 add_action('admin_bar_menu', 'libpress_menu_mgmt_remove_toolbar_node', 500);
 
-// Remove theme support to disable more widget things on the backend
+/**
+ * Remove theme support to disable more widget things on the backend
+ */
 add_action('init', function () {
     if (!wp_doing_ajax() && is_admin()) {
         $user = wp_get_current_user();
@@ -115,13 +125,19 @@ add_action('init', function () {
 }, 100);
 
 /**
+ * -------------------
  * CLI Command section
- **/
+ * -------------------
+ */
 
-//Define export directory constant
+/**
+ * Define export directory constant
+ */
 defined('MENU_MGMT_EXPORT_DIR') or define('MENU_MGMT_EXPORT_DIR', '/home/siteuser/libpress_menu_backups/');
 
-//Custom CLI commands
+/**
+ * Custom CLI commands
+ */
 if (defined('WP_CLI') && WP_CLI) {
     WP_CLI::add_command('libpress-export-blogmenus', 'libpress_menu_mgmt_export_blog_menu');
     WP_CLI::add_command('libpress-import-blogmenu', 'libpress_menu_mgmt_import_blog_menu');
@@ -209,6 +225,12 @@ function libpress_export_runner($blog)
     }
 }
 
+/**
+ * The CLI import command. Will delete existing menus, import from the file
+ * specified, then assign the imported menus to the correct menu locations.
+ *
+ * @param string $filepath
+ */
 function libpress_menu_mgmt_import_blog_menu($filepath)
 {
     if (empty($filepath)) {
@@ -257,12 +279,80 @@ function libpress_menu_mgmt_import_blog_menu($filepath)
     }
 }
 
-// TODO: Maybe schedule an export on a cron job when changes are made?
-// But that would mean we're backing up the changes, not the pre-changes...
-// add_action('wp_update_nav_menu', function ($menu_id) {
-//     error_log(var_export($menu_id, true));
-// });
+/**
+ * -------------------------
+ * Menu Change Watch Section
+ * -------------------------
+ * TODO: Make these actually do something. Can't just use the WPCLI functions
+ * as they won't work from a web context.
+ */
 
+/**
+ * Look for changes to the menu. This will catch anything from the `nav-menus.php`
+ * page, but not from the customizer.
+ */
+add_action('load-nav-menus.php', function () {
+    $action = isset($_REQUEST['action']) ? $_REQUEST['action'] : null;
+    $nav_menu_selected_id = isset($_REQUEST['menu']) ? (int) $_REQUEST['menu'] : 0;
+    $menu_item_id = isset($_REQUEST['menu-item']) ? (int) $_REQUEST['menu-item'] : 0;
+
+    if ($action && ($nav_menu_selected_id || $menu_item_id)) {
+        switch (WP_ENV) {
+            case 'production':
+                // Backup
+                break;
+            case 'staging':
+                // Don't Backup
+                break;
+            case 'development':
+            default:
+                // Log
+                error_log('Menus Changed');
+        }
+    }
+});
+
+/**
+ * Catch when menu changes are being published through the customizer
+ */
+add_action('customize_save', function ($customizer) {
+    $changeset_setting_ids = array_keys($customizer->unsanitized_post_values([
+        'exclude_post_data' => true,
+        'exclude_changeset' => false,
+    ]));
+
+    if (!empty(preg_grep('/nav_menu/', $changeset_setting_ids))) {
+        switch (WP_ENV) {
+            case 'production':
+                // Backup
+                break;
+            case 'staging':
+                // Don't Backup
+                break;
+            case 'development':
+            default:
+                // Log
+                error_log('Menus Changed');
+        }
+    }
+});
+
+/**
+ * ---------------------
+ * Import Helper Section
+ * ---------------------
+ *
+ * The WP Importer wants all menu link destinations (terms/posts) to be included
+ * in the import file, since it's assuming this is a fresh import into a new site,
+ * but we're importing to the same site and assuming most/all IDs are the same.
+ * The following two hooks will fake the term/post data needed to make the
+ * importer happy.
+ */
+
+/**
+ * WP Importer term helper. Injects all current terms into the importer so they
+ * get added to its internal mapping array.
+ */
 add_filter('wp_import_terms', function ($terms) {
     $all_nav_menu = true;
     $fake_processed_terms = [];
@@ -297,6 +387,15 @@ add_filter('wp_import_terms', function ($terms) {
     return $terms;
 });
 
+/**
+ * WP Importer post helper. Adds any post id referenced by a menu to the array
+ * of posts to be imported so they'll be added to the importer's internal mapping
+ * array.
+ *
+ * Tried to make this also add an invalid ID for targets that don't exist on the
+ * site anymore, but that didn't seem possible in a clean way, so only throwing
+ * HTML errors instead.
+ */
 add_filter('wp_import_posts', function ($posts) {
     $all_nav_menu = true;
     $fake_processed_posts = [];
@@ -341,6 +440,7 @@ add_filter('wp_import_posts', function ($posts) {
                             'postmeta' => [],
                         ];
                     } else {
+                        // TODO: Keep track of posts we've checked and aren't found
                         printf(
                             'Menu Item &#8220;%s&#8221; skipped due to nonexistent post ID %s',
                             esc_html($item['post_title']),
@@ -350,6 +450,8 @@ add_filter('wp_import_posts', function ($posts) {
                     }
                 }
             } elseif ($_menu_item_type === 'taxonomy') {
+                // All known taxonomies added to the relevant matching array in the other helper,
+                // so this is only here to generate errors.
                 $check_term = get_term($_menu_item_object_id, $_menu_item_object);
 
                 if (!$check_term || is_wp_error($check_term)) {
