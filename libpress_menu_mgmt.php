@@ -16,7 +16,7 @@
  * @wordpress-plugin
  * Plugin Name:       LibPress Menu Management
  * Description:       Adds functionality for self-management of menus, network-wide exporting for backup
- * Version:           2.0.0
+ * Version:           2.0.1
  * Network:           true
  * Requires at least: 5.2
  * Requires PHP:      7.0
