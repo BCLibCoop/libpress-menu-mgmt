@@ -55,7 +55,7 @@ register_activation_hook(__FILE__, 'libpress_menu_mgmt_activate');
  */
 function libpress_menu_mgmt_new_blog()
 {
-    if (is_plugin_active_for_network('libpress-menu-mgmt/libpress_menu_mgmt.php')) {
+    if (is_plugin_active_for_network(plugin_basename(__FILE__))) {
         do_action('libpress_menu_mgmt_activation');
     }
 }
@@ -299,7 +299,7 @@ add_action('load-nav-menus.php', function () {
     if ($action && ($nav_menu_selected_id || $menu_item_id)) {
         switch (WP_ENV) {
             case 'production':
-                // Backup
+                // TODO: Backup
                 break;
             case 'staging':
                 // Don't Backup
@@ -324,7 +324,7 @@ add_action('customize_save', function ($customizer) {
     if (!empty(preg_grep('/nav_menu/', $changeset_setting_ids))) {
         switch (WP_ENV) {
             case 'production':
-                // Backup
+                // TODO: Backup
                 break;
             case 'staging':
                 // Don't Backup
