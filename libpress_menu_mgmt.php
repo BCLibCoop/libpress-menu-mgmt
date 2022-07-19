@@ -16,7 +16,7 @@
  * @wordpress-plugin
  * Plugin Name:       LibPress Menu Management
  * Description:       Adds functionality for self-management of menus, network-wide exporting for backup
- * Version:           2.0.1
+ * Version:           2.1.0
  * Network:           true
  * Requires at least: 5.2
  * Requires PHP:      7.0
@@ -32,52 +32,6 @@
  * Action hook setup section
  * -------------------------
  */
-
-/**
- * Register custom hook
- */
-function libpress_menu_mgmt_activate($network_wide)
-{
-    if (is_multisite() && $network_wide) {
-        foreach (get_sites() as $site) {
-            switch_to_blog($site->blog_id);
-            do_action('libpress_menu_mgmt_activation');
-            restore_current_blog();
-        }
-    } else {
-        do_action('libpress_menu_mgmt_activation');
-    }
-}
-register_activation_hook(__FILE__, 'libpress_menu_mgmt_activate');
-
-/**
- * Add action for new blog created
- */
-function libpress_menu_mgmt_new_blog()
-{
-    if (is_plugin_active_for_network(plugin_basename(__FILE__))) {
-        do_action('libpress_menu_mgmt_activation');
-    }
-}
-add_action('wpmu_new_blog', 'libpress_menu_mgmt_new_blog');
-
-/**
- * Add the Site Manager Plus role via custom hook
- */
-function libpress_menu_mgmt_add_role()
-{
-    $siteManager = get_role('site_manager');
-
-    if ($siteManager && !is_wp_error($siteManager)) {
-        $siteManagerCaps = $siteManager->capabilities;
-
-        // Add edit_theme_options to the caps that site_manager already has
-        $siteManagerPlusCaps = array_merge($siteManagerCaps, ['edit_theme_options' => true]);
-
-        add_role('site_manager_plus', 'Site & Menu Manager', $siteManagerPlusCaps);
-    }
-}
-add_action('libpress_menu_mgmt_activation', 'libpress_menu_mgmt_add_role');
 
 /**
  * Don't load Widgets customizer panel
