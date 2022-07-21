@@ -3,20 +3,20 @@
 /**
  * LibPress Menu Management
  *
- * Adds functionality for self-management of menus, network-wide exporting for backup
+ * Adds functionality for network-wide exporting for backup
  *
  * PHP Version 7
  *
  * @package           BCLibCoop\MenuMgmt
  * @author            Jonathan Schatz <jonathan.schatz@bc.libraries.coop>
  * @author            Sam Edwards <sam.edwards@bc.libraries.coop>
- * @copyright         2020-2021 BC Libraries Cooperative
+ * @copyright         2020-2022 BC Libraries Cooperative
  * @license           GPL-2.0-or-later
  *
  * @wordpress-plugin
  * Plugin Name:       LibPress Menu Management
- * Description:       Adds functionality for self-management of menus, network-wide exporting for backup
- * Version:           2.1.0
+ * Description:       Adds functionality for network-wide exporting for backup
+ * Version:           3.0.0
  * Network:           true
  * Requires at least: 5.2
  * Requires PHP:      7.0
@@ -26,57 +26,6 @@
  * License:           GPL v2 or later
  * License URI:       http://www.gnu.org/licenses/gpl-2.0.txt
  */
-
-/**
- * -------------------------
- * Action hook setup section
- * -------------------------
- */
-
-/**
- * Don't load Widgets customizer panel
- */
-function libpress_menu_mgmt_remove_customizer_panel($components)
-{
-    $user = wp_get_current_user();
-
-    if (in_array('site_manager_plus', $user->roles)) {
-        $i = array_search('widgets', $components);
-
-        if (false !== $i) {
-            unset($components[$i]);
-        }
-    }
-
-    return $components;
-}
-add_filter('customize_loaded_components', 'libpress_menu_mgmt_remove_customizer_panel');
-
-/**
- * Remove Widgets from the admin bar
- */
-function libpress_menu_mgmt_remove_toolbar_node($wp_admin_bar)
-{
-    $user = wp_get_current_user();
-
-    if (in_array('site_manager_plus', $user->roles) && !user_can($user, 'libpress_appearance')) {
-        $wp_admin_bar->remove_node('widgets');
-    }
-}
-add_action('admin_bar_menu', 'libpress_menu_mgmt_remove_toolbar_node', 500);
-
-/**
- * Remove theme support to disable more widget things on the backend
- */
-add_action('init', function () {
-    if (!wp_doing_ajax() && is_admin()) {
-        $user = wp_get_current_user();
-
-        if (in_array('site_manager_plus', $user->roles) && !user_can($user, 'libpress_appearance')) {
-            _remove_theme_support('widgets');
-        }
-    }
-}, 100);
 
 /**
  * -------------------
